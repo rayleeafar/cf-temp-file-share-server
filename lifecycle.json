@@ -1,0 +1,17 @@
+{
+  "rules": [
+    {
+      "id": "expire-expired-files",
+      "enabled": true,
+      "conditions": {
+        "prefix": ""
+      },
+      "deleteObjectsTransition": {
+        "condition": {
+          "type": "Age",
+          "maxAge": 0
+        }
+      }
+    }
+  ]
+}

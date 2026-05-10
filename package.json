@@ -1,0 +1,13 @@
+{
+  "name": "temp-file-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev --port 18788",
+    "deploy": "wrangler pages deploy --project-name temp-file-server",
+    "create-bucket": "wrangler r2 bucket create temp-files"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

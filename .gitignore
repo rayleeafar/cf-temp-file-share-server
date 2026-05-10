@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Cloudflare Wrangler
+.wrangler/
+
+# Clack Harness project
+.rlcr/
+.humanize/
+.claude/
+.codex/
+.gemini/
+.opencode/
+.cursor/
+.turbo/
+.next/
+dist/
+build/
+coverage/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+.env.local
+*.log
+.DS_Store

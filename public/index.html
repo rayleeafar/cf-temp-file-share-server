@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temp File Server</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Temp File Server <button id="settingsToggle" class="settings-toggle" title="Settings">&#9881;</button></h1>
+    <p class="subtitle">Upload a file and get a shareable link with optional expiration.</p>
+
+    <div id="settingsPanel" class="settings-panel hidden">
+      <label for="tokenInput">Auth Token:</label>
+      <input type="text" id="tokenInput" placeholder="Enter a token to group your files" autocomplete="off">
+      <p class="settings-hint">Files uploaded with the same token will appear together in the file list below.</p>
+    </div>
+
+    <div id="tokenBadge" class="token-badge hidden"></div>
+
+    <div id="fileList" class="file-list hidden">
+      <h2>Your Shared Files</h2>
+      <div id="fileListBody"></div>
+      <p id="fileListEmpty" class="file-list-empty hidden">No shared files found for this token.</p>
+    </div>
+
+    <div class="upload-area" id="dropZone">
+      <p class="drop-text">Drag & drop a file here, or click to select</p>
+      <p class="drop-hint">Max file size: 25 MB</p>
+      <input type="file" id="fileInput" hidden>
+    </div>
+
+    <div class="expiry-section">
+      <label for="expirySelect">Link expiration:</label>
+      <select id="expirySelect">
+        <option value="3600">1 hour</option>
+        <option value="21600">6 hours</option>
+        <option value="86400">24 hours</option>
+        <option value="259200">3 days</option>
+        <option value="604800" selected>7 days</option>
+        <option value="">Never</option>
+      </select>
+    </div>
+
+    <button id="uploadBtn" class="upload-btn" disabled>Upload</button>
+
+    <div id="status" class="status hidden"></div>
+    <div id="result" class="result hidden">
+      <p>File uploaded! Share this link:</p>
+      <div class="link-row">
+        <input type="text" id="shareLink" readonly>
+        <button id="copyBtn">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>
