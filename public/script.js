@@ -217,6 +217,180 @@ function formatExpires(expiresAt) {
 }
 
 // =============================================
+// Expiry Mapping
+// =============================================
+const EXPIRY_PRESETS = [
+  { value: "3600", label: "1 hour" },
+  { value: "21600", label: "6 hours" },
+  { value: "86400", label: "24 hours" },
+  { value: "259200", label: "3 days" },
+  { value: "604800", label: "7 days" },
+  { value: "", label: "Never" },
+];
+
+function mapExpiresAtToPreset(expiresAt) {
+  if (!expiresAt) return ""; // permanent
+  const remaining = expiresAt - Math.floor(Date.now() / 1000);
+  if (remaining <= 0) return ""; // expired -> default to Never
+  // Find the closest preset that's >= remaining
+  const presets = [3600, 21600, 86400, 259200, 604800];
+  for (const p of presets) {
+    if (remaining <= p * 1.5) return String(p);
+  }
+  return ""; // default to Never for very long-lived files
+}
+
+// =============================================
+// Update File UI
+// =============================================
+function createUpdateForm(file, row) {
+  const form = document.createElement("div");
+  form.className = "file-update-form hidden";
+
+  // Drop zone for replacement file (optional)
+  const dropZone = document.createElement("div");
+  dropZone.className = "update-drop-zone";
+  dropZone.textContent = "Drop new file here (optional), or click to select";
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.hidden = true;
+  dropZone.appendChild(fileInput);
+
+  let updateFile = null;
+
+  dropZone.addEventListener("click", () => fileInput.click());
+
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("drag-over");
+  });
+
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("drag-over");
+  });
+
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleUpdateFileSelect(files[0]);
+    }
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+      handleUpdateFileSelect(fileInput.files[0]);
+    }
+  });
+
+  function handleUpdateFileSelect(f) {
+    if (f.size > MAX_SIZE) {
+      updateStatusEl.textContent = "File exceeds the 25 MB size limit.";
+      updateStatusEl.className = "update-status error";
+      updateFile = null;
+      dropZone.classList.remove("has-file");
+      dropZone.textContent = "Drop new file here (optional), or click to select";
+      const inp = document.createElement("input");
+      inp.type = "file";
+      inp.hidden = true;
+      dropZone.appendChild(inp);
+      inp.addEventListener("change", () => {
+        if (inp.files.length > 0) handleUpdateFileSelect(inp.files[0]);
+      });
+      return;
+    }
+    updateFile = f;
+    dropZone.classList.add("has-file");
+    dropZone.innerHTML = "";
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = f.name;
+    dropZone.appendChild(nameSpan);
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.hidden = true;
+    dropZone.appendChild(inp);
+    inp.addEventListener("change", () => {
+      if (inp.files.length > 0) handleUpdateFileSelect(inp.files[0]);
+    });
+    updateStatusEl.className = "update-status hidden";
+    updateStatusEl.textContent = "";
+  }
+
+  // Controls row: expiry select + apply button
+  const controls = document.createElement("div");
+  controls.className = "update-controls";
+
+  const expirySelect = document.createElement("select");
+  expirySelect.className = "update-expiry-select";
+  const currentPreset = mapExpiresAtToPreset(file.expiresAt);
+  for (const opt of EXPIRY_PRESETS) {
+    const el = document.createElement("option");
+    el.value = opt.value;
+    el.textContent = opt.label;
+    if (opt.value === currentPreset) el.selected = true;
+    expirySelect.appendChild(el);
+  }
+
+  const applyBtn = document.createElement("button");
+  applyBtn.className = "apply-update-btn";
+  applyBtn.textContent = "Apply Update";
+
+  controls.appendChild(expirySelect);
+  controls.appendChild(applyBtn);
+
+  // Status line
+  const updateStatusEl = document.createElement("div");
+  updateStatusEl.className = "update-status hidden";
+
+  form.appendChild(dropZone);
+  form.appendChild(controls);
+  form.appendChild(updateStatusEl);
+
+  // Apply update handler
+  applyBtn.addEventListener("click", async () => {
+    applyBtn.disabled = true;
+    applyBtn.textContent = "Updating...";
+    updateStatusEl.className = "update-status hidden";
+    updateStatusEl.textContent = "";
+
+    try {
+      const fd = new FormData();
+      fd.append("fileKey", file.id || file.key);
+      fd.append("authToken", authToken);
+      if (updateFile) {
+        fd.append("file", updateFile);
+      }
+      fd.append("expiresIn", expirySelect.value);
+
+      const res = await fetch("/api/files/update", {
+        method: "PUT",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Update failed." }));
+        throw new Error(err.error || `Update failed (HTTP ${res.status})`);
+      }
+
+      updateStatusEl.textContent = "File updated successfully!";
+      updateStatusEl.className = "update-status success";
+
+      // Refresh the file list after a brief delay
+      setTimeout(() => loadFileList(), 1200);
+    } catch (err) {
+      updateStatusEl.textContent = err.message;
+      updateStatusEl.className = "update-status error";
+      applyBtn.disabled = false;
+      applyBtn.textContent = "Apply Update";
+    }
+  });
+
+  return form;
+}
+
+// =============================================
 // File List
 // =============================================
 async function loadFileList() {
@@ -289,10 +463,21 @@ async function loadFileList() {
         }
       });
 
+      const updateBtn = document.createElement("button");
+      updateBtn.className = "file-update-btn";
+      updateBtn.textContent = "Update";
+      updateBtn.addEventListener("click", () => {
+        form.classList.toggle("hidden");
+      });
+
+      const form = createUpdateForm(file, row);
+
       row.appendChild(nameSpan);
       row.appendChild(metaSpan);
       row.appendChild(copyLinkBtn);
+      row.appendChild(updateBtn);
       fileListBody.appendChild(row);
+      fileListBody.appendChild(form);
     }
   } catch (err) {
     fileListLoader.classList.add("hidden");
