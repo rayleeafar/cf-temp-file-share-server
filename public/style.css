@@ -136,6 +136,20 @@ h1 {
   box-shadow: var(--glow-cyan);
 }
 
+/* ===== Nav Link (API Docs) ===== */
+.nav-link {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--transition);
+  flex-shrink: 0;
+}
+
+.nav-link:hover {
+  color: var(--accent);
+}
+
 /* ===== Settings Panel ===== */
 .settings-panel {
   margin-bottom: 1rem;

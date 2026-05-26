@@ -1,0 +1,424 @@
+openapi: "3.0.3"
+info:
+  title: Temp File Server API
+  description: |
+    A Cloudflare Pages application for uploading and sharing files with
+    time-limited or permanent download links, backed by R2 object storage.
+
+    Files are stored under a `namespace/code` key format (e.g. `8472/Ab3xY9`)
+    where the namespace is derived from the auth token hash. An optional
+    auth token groups files together and allows listing, and is required
+    for updating existing files.
+  version: "1.0.0"
+  contact:
+    url: https://github.com/your-org/temp-file-server
+
+servers:
+  - url: /
+    description: Root-relative URLs (works in both dev and production)
+
+paths:
+  # -------------------------------------------------------------------
+  # POST /api/upload — Upload a file
+  # -------------------------------------------------------------------
+  /api/upload:
+    post:
+      summary: Upload a file and receive a shareable download link
+      operationId: uploadFile
+      tags:
+        - Upload & Download
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload (max 25 MB).
+                expiresIn:
+                  type: string
+                  description: |
+                    Expiration in seconds as a string. Supported values
+                    (or any custom number up to 604800):
+                      - `"3600"` — 1 hour
+                      - `"21600"` — 6 hours
+                      - `"86400"` — 24 hours
+                      - `"259200"` — 3 days
+                      - `"604800"` — 7 days
+                      - `""` (empty) — never expires
+                    If omitted, the server may apply a default.
+                  example: "86400"
+                authToken:
+                  type: string
+                  description: |
+                    Optional token to group files together. Files uploaded
+                    with the same token can be listed via `GET /api/files`.
+                    The token is hashed to derive the namespace.
+                  example: "my-secret-token"
+      responses:
+        "200":
+          description: File uploaded successfully. Returns the shareable URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - url
+                  - id
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Shareable download link for the file.
+                    example: "https://example.com/8472/Ab3xY9"
+                  id:
+                    type: string
+                    description: The R2 object key (namespace/code).
+                    example: "8472/Ab3xY9"
+                  expiresAt:
+                    type: integer
+                    description: |
+                      Unix timestamp (seconds) when the link expires.
+                      Omitted for permanent files.
+                    example: 1748131200
+        "400":
+          description: No file provided in the request body.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "No file provided."
+        "405":
+          description: Method not allowed. Only POST is accepted.
+        "413":
+          description: File exceeds the 25 MB size limit.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "File exceeds the 25 MB size limit."
+
+  # -------------------------------------------------------------------
+  # GET /{namespace}/{code} — Download by namespace/code
+  # -------------------------------------------------------------------
+  "/{namespace}/{code}":
+    get:
+      summary: Download a file by its namespace and code
+      operationId: downloadFile
+      tags:
+        - Upload & Download
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{4}$"
+          description: |
+            4-digit namespace derived from the auth token hash
+            (e.g. `8472`).
+          example: "8472"
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9A-Za-z]{6}$"
+          description: |
+            6-character base62 code uniquely identifying the file
+            within the namespace (e.g. `Ab3xY9`).
+          example: "Ab3xY9"
+      responses:
+        "200":
+          description: |
+            The file content is returned with appropriate Content-Type
+            and Content-Disposition headers for download.
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: MIME type of the file.
+            Content-Disposition:
+              schema:
+                type: string
+              description: |
+                Set to `attachment; filename="<original-name>"` to
+                trigger a download.
+            Content-Length:
+              schema:
+                type: integer
+              description: File size in bytes.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found (key does not exist in R2).
+        "410":
+          description: |
+            File has expired and is no longer available. Returns an
+            HTML error page.
+
+  # -------------------------------------------------------------------
+  # GET /api/files — List files by auth token
+  # -------------------------------------------------------------------
+  /api/files:
+    get:
+      summary: List all non-expired files associated with an auth token
+      operationId: listFiles
+      tags:
+        - File Management
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: |
+            The auth token used during upload. Only files whose
+            `customMetadata.authToken` matches this value are returned.
+            Expired files are excluded.
+          example: "my-secret-token"
+      responses:
+        "200":
+          description: |
+            JSON object containing an array of file metadata entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - files
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - filename
+                        - size
+                        - type
+                        - expiresAt
+                        - url
+                      properties:
+                        id:
+                          type: string
+                          description: R2 object key (namespace/code).
+                          example: "8472/Ab3xY9"
+                        filename:
+                          type: string
+                          description: Original filename from upload.
+                          example: "report.pdf"
+                        size:
+                          type: integer
+                          description: File size in bytes.
+                          example: 1048576
+                        type:
+                          type: string
+                          description: MIME type of the file.
+                          example: "application/pdf"
+                        expiresAt:
+                          oneOf:
+                            - type: integer
+                              description: >
+                                Unix timestamp (seconds) when the link
+                                expires.
+                              example: 1748131200
+                            - type: "null"
+                              description: File never expires.
+                        url:
+                          type: string
+                          format: uri
+                          description: Download URL for the file.
+                          example: "https://example.com/8472/Ab3xY9"
+        "400":
+          description: Missing `token` query parameter.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "token query parameter is required"
+
+  # -------------------------------------------------------------------
+  # GET /api/files/{id} — Download by ID (backward-compat)
+  # -------------------------------------------------------------------
+  "/api/files/{id}":
+    get:
+      summary: Download a file by its R2 key (backward compatibility)
+      operationId: downloadFileById
+      tags:
+        - Upload & Download
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            The R2 object key. For modern uploads this is in
+            `namespace/code` format (e.g. `8472/Ab3xY9`). Older
+            uploads may use a UUID-style key.
+          example: "8472/Ab3xY9"
+      responses:
+        "200":
+          description: |
+            The file content is returned with appropriate Content-Type
+            and Content-Disposition headers for download.
+          headers:
+            Content-Type:
+              schema:
+                type: string
+            Content-Disposition:
+              schema:
+                type: string
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found.
+        "410":
+          description: File has expired.
+
+  # -------------------------------------------------------------------
+  # PUT /api/files/update — Update an existing file
+  # -------------------------------------------------------------------
+  /api/files/update:
+    put:
+      summary: Update an existing file (content and/or expiration)
+      operationId: updateFile
+      tags:
+        - File Management
+      description: |
+        Updates the content and/or expiration of a previously uploaded
+        file. Requires the same `authToken` that was used during the
+        original upload.
+
+        If a new `file` is provided, the object body is replaced while
+        preserving all existing custom metadata (except `filename` which
+        is updated from the new file's name). If `expiresIn` is provided,
+        the expiration is recalculated; an empty string makes the file
+        permanent.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - fileKey
+                - authToken
+              properties:
+                fileKey:
+                  type: string
+                  description: |
+                    The R2 object key to update (e.g. `8472/Ab3xY9`).
+                  example: "8472/Ab3xY9"
+                authToken:
+                  type: string
+                  description: |
+                    The same auth token used during the original upload.
+                    Must match the stored `customMetadata.authToken`.
+                  example: "my-secret-token"
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    Optional new file content (max 25 MB). If omitted,
+                    only the expiration is updated.
+                expiresIn:
+                  type: string
+                  description: |
+                    New expiration in seconds, or empty string for
+                    permanent. If omitted, the current expiration is
+                    preserved.
+                  example: "604800"
+      responses:
+        "200":
+          description: File updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - url
+                  - id
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Updated shareable download link.
+                    example: "https://example.com/8472/Ab3xY9"
+                  id:
+                    type: string
+                    description: The R2 object key.
+                    example: "8472/Ab3xY9"
+                  expiresAt:
+                    type: integer
+                    description: |
+                      Updated Unix timestamp (seconds) when the link
+                      expires. Omitted for permanent files.
+                    example: 1748736000
+        "400":
+          description: Missing required fields (`fileKey` or `authToken`).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "fileKey and authToken are required."
+        "403":
+          description: |
+            Auth token does not match the token stored on the file.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or missing auth token"
+        "404":
+          description: File key does not exist in R2.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "File not found."
+        "405":
+          description: Method not allowed. Only PUT is accepted.
+        "413":
+          description: New file exceeds the 25 MB size limit.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "File exceeds the 25 MB size limit."
