@@ -1,9 +1,18 @@
+/* =============================================
+   Temp File Server — Dark Tech Frontend
+   All existing functionality preserved plus
+   enhanced loading/error/empty states.
+   ============================================= */
+
 const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
 
+// --- DOM References ---
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const expirySelect = document.getElementById("expirySelect");
 const uploadBtn = document.getElementById("uploadBtn");
+const uploadBtnText = document.querySelector(".upload-btn-text");
+const uploadSpinner = document.getElementById("uploadSpinner");
 const status = document.getElementById("status");
 const result = document.getElementById("result");
 const shareLink = document.getElementById("shareLink");
@@ -14,11 +23,16 @@ const tokenInput = document.getElementById("tokenInput");
 const tokenBadge = document.getElementById("tokenBadge");
 const fileList = document.getElementById("fileList");
 const fileListBody = document.getElementById("fileListBody");
+const fileListLoader = document.getElementById("fileListLoader");
 const fileListEmpty = document.getElementById("fileListEmpty");
+const fileListError = document.getElementById("fileListError");
+const fileListErrorMsg = document.getElementById("fileListErrorMsg");
 
 let selectedFile = null;
 
-// --- Token settings ---
+// =============================================
+// Token Settings
+// =============================================
 let authToken = localStorage.getItem("authToken") || "";
 if (authToken) {
   tokenInput.value = authToken;
@@ -46,14 +60,16 @@ function updateTokenBadge() {
     const display = authToken.length > 6
       ? authToken.slice(0, 3) + "***" + authToken.slice(-1)
       : authToken.slice(0, 3) + "***";
-    tokenBadge.textContent = "Token: " + display;
+    tokenBadge.textContent = display;
     tokenBadge.classList.remove("hidden");
   } else {
     tokenBadge.classList.add("hidden");
   }
 }
 
-// --- Drag & drop ---
+// =============================================
+// Drag & Drop
+// =============================================
 dropZone.addEventListener("click", () => fileInput.click());
 
 dropZone.addEventListener("dragover", (e) => {
@@ -86,6 +102,7 @@ function handleFileSelect(file) {
     selectedFile = null;
     uploadBtn.disabled = true;
     dropZone.classList.remove("has-file");
+    dropZone.querySelector(".drop-text").textContent = "Drag & drop a file here, or click to select";
     return;
   }
 
@@ -97,13 +114,16 @@ function handleFileSelect(file) {
   hideResult();
 }
 
-// --- Upload ---
+// =============================================
+// Upload
+// =============================================
 uploadBtn.addEventListener("click", async () => {
   if (!selectedFile) return;
 
   uploadBtn.disabled = true;
   uploadBtn.classList.add("loading");
-  uploadBtn.textContent = "Uploading...";
+  uploadBtnText.textContent = "Uploading...";
+  uploadSpinner.classList.remove("hidden");
   hideStatus();
   hideResult();
 
@@ -140,11 +160,14 @@ uploadBtn.addEventListener("click", async () => {
   } finally {
     uploadBtn.disabled = false;
     uploadBtn.classList.remove("loading");
-    uploadBtn.textContent = "Upload";
+    uploadBtnText.textContent = "Upload";
+    uploadSpinner.classList.add("hidden");
   }
 });
 
-// --- Copy link ---
+// =============================================
+// Copy Link
+// =============================================
 copyBtn.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(shareLink.value);
@@ -153,10 +176,14 @@ copyBtn.addEventListener("click", async () => {
   } catch {
     shareLink.select();
     document.execCommand("copy");
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
   }
 });
 
-// --- Helpers ---
+// =============================================
+// Status Helpers
+// =============================================
 function showStatus(msg, type) {
   status.textContent = msg;
   status.className = `status ${type}`;
@@ -170,7 +197,9 @@ function hideResult() {
   result.className = "result hidden";
 }
 
-// --- File list ---
+// =============================================
+// Formatting Helpers
+// =============================================
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -187,9 +216,15 @@ function formatExpires(expiresAt) {
   return Math.ceil(diff / 86400) + " days";
 }
 
+// =============================================
+// File List
+// =============================================
 async function loadFileList() {
+  // Clear previous content
   fileListBody.innerHTML = "";
   fileListEmpty.classList.add("hidden");
+  fileListError.classList.add("hidden");
+  fileListLoader.classList.add("hidden");
   fileList.classList.remove("hidden");
 
   if (!authToken) {
@@ -197,15 +232,22 @@ async function loadFileList() {
     return;
   }
 
+  // Show loading state
+  fileListLoader.classList.remove("hidden");
+
   try {
     const res = await fetch("/api/files?token=" + encodeURIComponent(authToken));
+    fileListLoader.classList.add("hidden");
+
     if (!res.ok) {
-      fileListBody.innerHTML = '<p class="file-list-empty">Failed to load file list.</p>';
+      fileListErrorMsg.textContent = "Failed to load file list (HTTP " + res.status + ").";
+      fileListError.classList.remove("hidden");
       return;
     }
+
     const data = await res.json();
 
-    if (data.files.length === 0) {
+    if (!data.files || data.files.length === 0) {
       fileListEmpty.classList.remove("hidden");
       return;
     }
@@ -217,22 +259,23 @@ async function loadFileList() {
       const nameSpan = document.createElement("span");
       nameSpan.className = "file-name";
       nameSpan.textContent = file.filename;
+      nameSpan.title = file.filename;
 
       const metaSpan = document.createElement("span");
       metaSpan.className = "file-meta";
       metaSpan.textContent = formatSize(file.size) + " | " + file.type + " | " + formatExpires(file.expiresAt);
 
-      const copyBtn = document.createElement("button");
-      copyBtn.className = "file-copy-btn";
-      copyBtn.textContent = "Copy Link";
-      copyBtn.addEventListener("click", async () => {
+      const copyLinkBtn = document.createElement("button");
+      copyLinkBtn.className = "file-copy-btn";
+      copyLinkBtn.textContent = "Copy Link";
+      copyLinkBtn.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(file.url);
-          copyBtn.textContent = "Copied!";
-          copyBtn.classList.add("copied");
+          copyLinkBtn.textContent = "Copied!";
+          copyLinkBtn.classList.add("copied");
           setTimeout(() => {
-            copyBtn.textContent = "Copy Link";
-            copyBtn.classList.remove("copied");
+            copyLinkBtn.textContent = "Copy Link";
+            copyLinkBtn.classList.remove("copied");
           }, 2000);
         } catch {
           const temp = document.createElement("input");
@@ -241,17 +284,19 @@ async function loadFileList() {
           temp.select();
           document.execCommand("copy");
           document.body.removeChild(temp);
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 2000);
+          copyLinkBtn.textContent = "Copied!";
+          setTimeout(() => { copyLinkBtn.textContent = "Copy Link"; }, 2000);
         }
       });
 
       row.appendChild(nameSpan);
       row.appendChild(metaSpan);
-      row.appendChild(copyBtn);
+      row.appendChild(copyLinkBtn);
       fileListBody.appendChild(row);
     }
-  } catch {
-    fileListBody.innerHTML = '<p class="file-list-empty">Failed to load file list.</p>';
+  } catch (err) {
+    fileListLoader.classList.add("hidden");
+    fileListErrorMsg.textContent = "Network error loading file list.";
+    fileListError.classList.remove("hidden");
   }
 }

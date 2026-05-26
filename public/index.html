@@ -5,32 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Temp File Server</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <h1>Temp File Server <button id="settingsToggle" class="settings-toggle" title="Settings">&#9881;</button></h1>
+    <div class="header-row">
+      <h1>Temp File Server</h1>
+      <button id="settingsToggle" class="settings-toggle" title="Settings" aria-label="Toggle settings">&#9881;</button>
+    </div>
     <p class="subtitle">Upload a file and get a shareable link with optional expiration.</p>
 
+    <!-- Settings Panel -->
     <div id="settingsPanel" class="settings-panel hidden">
-      <label for="tokenInput">Auth Token:</label>
-      <input type="text" id="tokenInput" placeholder="Enter a token to group your files" autocomplete="off">
+      <label for="tokenInput">Auth Token</label>
+      <input type="text" id="tokenInput" placeholder="Enter a token to group your files" autocomplete="off" spellcheck="false">
       <p class="settings-hint">Files uploaded with the same token will appear together in the file list below.</p>
     </div>
 
+    <!-- Token Badge -->
     <div id="tokenBadge" class="token-badge hidden"></div>
 
+    <!-- File List -->
     <div id="fileList" class="file-list hidden">
       <h2>Your Shared Files</h2>
-      <div id="fileListBody"></div>
+      <div id="fileListBody">
+        <!-- Loading skeleton shown here while fetching -->
+      </div>
+      <div id="fileListLoader" class="loading-area hidden">
+        <div class="spinner spinner-lg"></div>
+        <span>Loading files...</span>
+      </div>
       <p id="fileListEmpty" class="file-list-empty hidden">No shared files found for this token.</p>
+      <div id="fileListError" class="error-banner hidden">
+        <span>&#9888;</span>
+        <span id="fileListErrorMsg">Failed to load file list.</span>
+      </div>
     </div>
 
+    <!-- Upload Area -->
     <div class="upload-area" id="dropZone">
-      <p class="drop-text">Drag & drop a file here, or click to select</p>
+      <p class="drop-text">Drag &amp; drop a file here, or click to select</p>
       <p class="drop-hint">Max file size: 25 MB</p>
       <input type="file" id="fileInput" hidden>
     </div>
 
+    <!-- Expiration Select -->
     <div class="expiry-section">
       <label for="expirySelect">Link expiration:</label>
       <select id="expirySelect">
@@ -43,13 +64,20 @@
       </select>
     </div>
 
-    <button id="uploadBtn" class="upload-btn" disabled>Upload</button>
+    <!-- Upload Button -->
+    <button id="uploadBtn" class="upload-btn" disabled>
+      <span class="upload-btn-text">Upload</span>
+      <span class="spinner hidden" id="uploadSpinner"></span>
+    </button>
 
+    <!-- Status Messages -->
     <div id="status" class="status hidden"></div>
+
+    <!-- Upload Result -->
     <div id="result" class="result hidden">
-      <p>File uploaded! Share this link:</p>
+      <p>&#10003; File uploaded!</p>
       <div class="link-row">
-        <input type="text" id="shareLink" readonly>
+        <input type="text" id="shareLink" readonly spellcheck="false">
         <button id="copyBtn">Copy</button>
       </div>
     </div>

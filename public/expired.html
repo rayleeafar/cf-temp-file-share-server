@@ -3,14 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Link Expired</title>
+  <title>Link Expired — Temp File Server</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <h1>Link Expired</h1>
-    <p>This file is no longer available. The link has expired.</p>
-    <a href="/" class="upload-btn" style="display:inline-block;text-align:center;text-decoration:none;margin-top:1rem">Upload a new file</a>
+  <div class="container" style="text-align:center">
+    <div class="expired-icon">&#9203;</div>
+    <h1 style="background:none;-webkit-text-fill-color:var(--text);background-clip:unset">Link Expired</h1>
+    <p class="expired-msg">
+      This file is no longer available.<br>
+      The link has expired or the file has been removed.
+    </p>
+    <a href="/" class="upload-btn" style="display:inline-block;text-align:center;text-decoration:none">Upload a new file</a>
   </div>
 </body>
 </html>
