@@ -101,7 +101,7 @@ Configuration lives in `wrangler.toml`:
 
 | Limit | Value |
 |---|---|
-| Maximum file size | 25 MB |
+| Maximum file size | 100 MB |
 | Maximum expiration | 7 days |
 | Supported expirations | 1h, 6h, 24h, 3d, 7d, Never |
 

@@ -64,7 +64,7 @@ export async function onRequest(context) {
   if (newFile && newFile instanceof File) {
     if (newFile.size > MAX_SIZE) {
       return new Response(
-        JSON.stringify({ error: "File exceeds the 25 MB size limit." }),
+        JSON.stringify({ error: "File exceeds the 100 MB size limit." }),
         {
           status: 413,
           headers: { "content-type": "application/json" },

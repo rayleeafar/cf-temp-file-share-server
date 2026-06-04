@@ -39,7 +39,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: The file to upload (max 25 MB).
+                  description: The file to upload (max 100 MB).
                 expiresIn:
                   type: string
                   description: |
@@ -99,7 +99,7 @@ paths:
         "405":
           description: Method not allowed. Only POST is accepted.
         "413":
-          description: File exceeds the 25 MB size limit.
+          description: File exceeds the 100 MB size limit.
           content:
             application/json:
               schema:
@@ -107,7 +107,7 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "File exceeds the 25 MB size limit."
+                    example: "File exceeds the 100 MB size limit."
 
   # -------------------------------------------------------------------
   # GET /{namespace}/{code} — Download by namespace/code
@@ -344,7 +344,7 @@ paths:
                   type: string
                   format: binary
                   description: |
-                    Optional new file content (max 25 MB). If omitted,
+                    Optional new file content (max 100 MB). If omitted,
                     only the expiration is updated.
                 expiresIn:
                   type: string
@@ -413,7 +413,7 @@ paths:
         "405":
           description: Method not allowed. Only PUT is accepted.
         "413":
-          description: New file exceeds the 25 MB size limit.
+          description: New file exceeds the 100 MB size limit.
           content:
             application/json:
               schema:
@@ -421,4 +421,4 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "File exceeds the 25 MB size limit."
+                    example: "File exceeds the 100 MB size limit."
