@@ -1,4 +1,4 @@
-const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
+const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
 export async function onRequest(context) {
   const request = context.request;
