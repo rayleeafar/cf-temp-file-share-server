@@ -1,4 +1,4 @@
-const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_SIZE = 1 * 1024 * 1024 * 1024; // 1 GB
 const MAX_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const MAX_COLLISION_RETRIES = 3;
@@ -44,7 +44,7 @@ export async function onRequest(context) {
   // Check content-length header before reading body
   const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
   if (contentLength > MAX_SIZE) {
-    return new Response(JSON.stringify({ error: "File exceeds the 100 MB size limit." }), {
+    return new Response(JSON.stringify({ error: "File exceeds the 1 GB size limit." }), {
       status: 413,
       headers: { "content-type": "application/json" },
     });
@@ -63,7 +63,7 @@ export async function onRequest(context) {
   }
 
   if (file.size > MAX_SIZE) {
-    return new Response(JSON.stringify({ error: "File exceeds the 100 MB size limit." }), {
+    return new Response(JSON.stringify({ error: "File exceeds the 1 GB size limit." }), {
       status: 413,
       headers: { "content-type": "application/json" },
     });
