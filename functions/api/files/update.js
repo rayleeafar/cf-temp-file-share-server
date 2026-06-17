@@ -1,4 +1,4 @@
-const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_SIZE = 1 * 1024 * 1024 * 1024; // 1 GB
 
 export async function onRequest(context) {
   const request = context.request;
@@ -64,7 +64,7 @@ export async function onRequest(context) {
   if (newFile && newFile instanceof File) {
     if (newFile.size > MAX_SIZE) {
       return new Response(
-        JSON.stringify({ error: "File exceeds the 100 MB size limit." }),
+        JSON.stringify({ error: "File exceeds the 1 GB size limit." }),
         {
           status: 413,
           headers: { "content-type": "application/json" },
