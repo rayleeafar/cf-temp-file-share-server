@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "wrangler pages dev --port 18788",
-    "deploy": "wrangler pages deploy --project-name temp-file-server",
+    "deploy": "wrangler pages deploy --project-name temp-file-server --branch master",
     "create-bucket": "wrangler r2 bucket create temp-files"
   },
   "devDependencies": {
