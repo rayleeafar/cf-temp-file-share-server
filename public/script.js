@@ -115,6 +115,102 @@ function handleFileSelect(file) {
 }
 
 // =============================================
+// Multipart Upload Helper
+// =============================================
+async function uploadFileMultipart(file, options = {}) {
+  const { authToken, expiresIn, fileKey, onProgress } = options;
+
+  // 1. Initiate
+  const initiateRes = await fetch("/api/upload/initiate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
+      type: file.type,
+      expiresIn: expiresIn !== undefined ? expiresIn : null,
+      authToken: authToken || null,
+      fileKey: fileKey || null,
+      fileSize: file.size,
+    }),
+  });
+
+  if (!initiateRes.ok) {
+    const err = await initiateRes.json().catch(() => ({ error: "Failed to initiate multipart upload." }));
+    throw new Error(err.error || `Initiate failed (HTTP ${initiateRes.status})`);
+  }
+
+  const { uploadId, key, url, expiresAt } = await initiateRes.json();
+
+  // 2. Upload parts
+  const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
+  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+  const parts = [];
+
+  let uploadedBytes = 0;
+
+  for (let i = 0; i < totalParts; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+    const partNumber = i + 1;
+
+    let partUploadSuccess = false;
+    let errMessage = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const partRes = await fetch(`/api/upload/part?key=${encodeURIComponent(key)}&uploadId=${uploadId}&partNumber=${partNumber}`, {
+          method: "POST",
+          body: chunk,
+        });
+
+        if (!partRes.ok) {
+          const err = await partRes.json().catch(() => ({ error: "Part upload failed." }));
+          throw new Error(err.error || `HTTP ${partRes.status}`);
+        }
+
+        const data = await partRes.json();
+        parts.push({
+          partNumber: data.partNumber,
+          etag: data.etag,
+        });
+        partUploadSuccess = true;
+        break;
+      } catch (err) {
+        errMessage = err.message;
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
+    }
+
+    if (!partUploadSuccess) {
+      throw new Error(`Failed to upload part ${partNumber}: ${errMessage}`);
+    }
+
+    uploadedBytes += chunk.size;
+    if (onProgress) {
+      onProgress(Math.round((uploadedBytes / file.size) * 100));
+    }
+  }
+
+  // 3. Complete
+  const completeRes = await fetch("/api/upload/complete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      key,
+      uploadId,
+      parts,
+    }),
+  });
+
+  if (!completeRes.ok) {
+    const err = await completeRes.json().catch(() => ({ error: "Failed to complete multipart upload." }));
+    throw new Error(err.error || `Complete failed (HTTP ${completeRes.status})`);
+  }
+
+  return await completeRes.json();
+}
+
+// =============================================
 // Upload
 // =============================================
 uploadBtn.addEventListener("click", async () => {
@@ -127,30 +223,44 @@ uploadBtn.addEventListener("click", async () => {
   hideStatus();
   hideResult();
 
-  const formData = new FormData();
-  formData.append("file", selectedFile);
-
-  if (authToken) {
-    formData.append("authToken", authToken);
-  }
-
   const expiresIn = expirySelect.value;
-  if (expiresIn !== "") {
-    formData.append("expiresIn", expiresIn);
-  }
+  const useMultipart = selectedFile.size > 20 * 1024 * 1024; // > 20 MB
 
   try {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    let data;
+    if (useMultipart) {
+      data = await uploadFileMultipart(selectedFile, {
+        authToken,
+        expiresIn,
+        onProgress: (percent) => {
+          uploadBtnText.textContent = `Uploading ${percent}%...`;
+        },
+      });
+    } else {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Upload failed." }));
-      throw new Error(err.error || `Upload failed (HTTP ${res.status})`);
+      if (authToken) {
+        formData.append("authToken", authToken);
+      }
+
+      if (expiresIn !== "") {
+        formData.append("expiresIn", expiresIn);
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed." }));
+        throw new Error(err.error || `Upload failed (HTTP ${res.status})`);
+      }
+
+      data = await res.json();
     }
 
-    const data = await res.json();
     shareLink.value = data.url;
     result.classList.remove("hidden");
     showStatus("File uploaded successfully!", "success");
