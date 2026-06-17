@@ -465,23 +465,36 @@ function createUpdateForm(file, row) {
     updateStatusEl.className = "update-status hidden";
     updateStatusEl.textContent = "";
 
+    const useMultipart = updateFile && updateFile.size > 20 * 1024 * 1024;
+
     try {
-      const fd = new FormData();
-      fd.append("fileKey", file.id || file.key);
-      fd.append("authToken", authToken);
-      if (updateFile) {
-        fd.append("file", updateFile);
-      }
-      fd.append("expiresIn", expirySelect.value);
+      if (useMultipart) {
+        await uploadFileMultipart(updateFile, {
+          authToken,
+          expiresIn: expirySelect.value,
+          fileKey: file.id || file.key,
+          onProgress: (percent) => {
+            applyBtn.textContent = `Updating ${percent}%...`;
+          },
+        });
+      } else {
+        const fd = new FormData();
+        fd.append("fileKey", file.id || file.key);
+        fd.append("authToken", authToken);
+        if (updateFile) {
+          fd.append("file", updateFile);
+        }
+        fd.append("expiresIn", expirySelect.value);
 
-      const res = await fetch("/api/files/update", {
-        method: "PUT",
-        body: fd,
-      });
+        const res = await fetch("/api/files/update", {
+          method: "PUT",
+          body: fd,
+        });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Update failed." }));
-        throw new Error(err.error || `Update failed (HTTP ${res.status})`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Update failed." }));
+          throw new Error(err.error || `Update failed (HTTP ${res.status})`);
+        }
       }
 
       updateStatusEl.textContent = "File updated successfully!";
