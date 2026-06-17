@@ -4,7 +4,7 @@
    enhanced loading/error/empty states.
    ============================================= */
 
-const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_SIZE = 1 * 1024 * 1024 * 1024; // 1 GB
 
 // --- DOM References ---
 const dropZone = document.getElementById("dropZone");
@@ -98,7 +98,7 @@ fileInput.addEventListener("change", () => {
 
 function handleFileSelect(file) {
   if (file.size > MAX_SIZE) {
-    showStatus("File exceeds the 100 MB size limit.", "error");
+    showStatus("File exceeds the 1 GB size limit.", "error");
     selectedFile = null;
     uploadBtn.disabled = true;
     dropZone.classList.remove("has-file");
@@ -287,7 +287,7 @@ function createUpdateForm(file, row) {
 
   function handleUpdateFileSelect(f) {
     if (f.size > MAX_SIZE) {
-      updateStatusEl.textContent = "File exceeds the 100 MB size limit.";
+      updateStatusEl.textContent = "File exceeds the 1 GB size limit.";
       updateStatusEl.className = "update-status error";
       updateFile = null;
       dropZone.classList.remove("has-file");
