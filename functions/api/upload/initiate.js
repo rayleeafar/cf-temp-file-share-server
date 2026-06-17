@@ -4,7 +4,7 @@ import {
   MAX_COLLISION_RETRIES,
   getNamespace,
   generateShortCode,
-} from "../_utils.js";
+} from "../../_utils.js";
 
 export async function onRequest(context) {
   const request = context.request;
