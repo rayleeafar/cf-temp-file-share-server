@@ -1,4 +1,4 @@
-const MAX_SIZE = 1 * 1024 * 1024 * 1024; // 1 GB
+import { MAX_SIZE } from "../../_utils.js";
 
 export async function onRequest(context) {
   const request = context.request;
