@@ -110,6 +110,220 @@ paths:
                     example: "File exceeds the 1 GB size limit."
 
   # -------------------------------------------------------------------
+  # POST /api/upload/initiate — Initiate multipart upload
+  # -------------------------------------------------------------------
+  /api/upload/initiate:
+    post:
+      summary: Initiate a chunked (multipart) file upload
+      operationId: initiateMultipartUpload
+      tags:
+        - Upload & Download
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+              properties:
+                filename:
+                  type: string
+                  description: Original name of the file.
+                  example: "largefile.zip"
+                type:
+                  type: string
+                  description: MIME type of the file.
+                  example: "application/zip"
+                expiresIn:
+                  type: string
+                  description: Expiration in seconds as a string.
+                  example: "86400"
+                authToken:
+                  type: string
+                  description: Optional token to group files.
+                  example: "my-secret-token"
+                fileKey:
+                  type: string
+                  description: Optional key of an existing file to update/overwrite.
+                  example: "8472/Ab3xY9"
+                fileSize:
+                  type: integer
+                  description: Optional size of the file in bytes for pre-validation.
+                  example: 629145600
+      responses:
+        "200":
+          description: Multipart upload initiated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - uploadId
+                  - key
+                  - url
+                properties:
+                  uploadId:
+                    type: string
+                    description: Unique ID for the multipart upload session.
+                    example: "g8b438...F87"
+                  key:
+                    type: string
+                    description: R2 object key (namespace/code).
+                    example: "8472/Ab3xY9"
+                  url:
+                    type: string
+                    format: uri
+                    description: Final shareable download link.
+                    example: "https://example.com/8472/Ab3xY9"
+                  expiresAt:
+                    type: integer
+                    description: Unix timestamp (seconds) when the link expires.
+                    example: 1748131200
+        "400":
+          description: Invalid request payload.
+        "403":
+          description: Invalid auth token for update.
+        "404":
+          description: File not found for update.
+        "413":
+          description: File size exceeds the 1 GB limit.
+
+  # -------------------------------------------------------------------
+  # POST /api/upload/part — Upload part of a chunked file
+  # -------------------------------------------------------------------
+  /api/upload/part:
+    post:
+      summary: Upload a single chunk (part) of a file
+      operationId: uploadPart
+      tags:
+        - Upload & Download
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The R2 object key returned from initiate.
+          example: "8472/Ab3xY9"
+        - name: uploadId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The uploadId returned from initiate.
+          example: "g8b438...F87"
+        - name: partNumber
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+          description: The part number (1-indexed chunk order).
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Part uploaded successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - partNumber
+                  - etag
+                properties:
+                  partNumber:
+                    type: integer
+                    example: 1
+                  etag:
+                    type: string
+                    description: ETag signature of the uploaded chunk.
+                    example: "\"d41d8cd98f00b204e9800998ecf8427e\""
+        "400":
+          description: Missing query parameters or invalid body.
+        "500":
+          description: Cloudflare R2 error resuming upload.
+
+  # -------------------------------------------------------------------
+  # POST /api/upload/complete — Complete multipart upload
+  # -------------------------------------------------------------------
+  /api/upload/complete:
+    post:
+      summary: Finalize a chunked file upload and assemble the parts
+      operationId: completeMultipartUpload
+      tags:
+        - Upload & Download
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - uploadId
+                - parts
+              properties:
+                key:
+                  type: string
+                  description: The R2 object key.
+                  example: "8472/Ab3xY9"
+                uploadId:
+                  type: string
+                  description: The uploadId.
+                  example: "g8b438...F87"
+                parts:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - partNumber
+                      - etag
+                    properties:
+                      partNumber:
+                        type: integer
+                        example: 1
+                      etag:
+                        type: string
+                        example: "\"d41d8cd98f00b204e9800998ecf8427e\""
+      responses:
+        "200":
+          description: File assembled and upload completed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - url
+                  - id
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Final shareable link.
+                    example: "https://example.com/8472/Ab3xY9"
+                  id:
+                    type: string
+                    description: R2 object key.
+                    example: "8472/Ab3xY9"
+                  expiresAt:
+                    type: integer
+                    description: Unix timestamp (seconds) when the link expires.
+                    example: 1748131200
+        "400":
+          description: Missing request body parameters.
+        "500":
+          description: Cloudflare R2 error finalizing upload.
+
+  # -------------------------------------------------------------------
   # GET /{namespace}/{code} — Download by namespace/code
   # -------------------------------------------------------------------
   "/{namespace}/{code}":
